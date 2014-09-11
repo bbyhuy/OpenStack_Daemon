@@ -13,6 +13,7 @@ our @EXPORT_OK = qw( get_instances
 use FindBin qw($Bin);
 use lib "$Bin/lib";
 use Logger qw (Log LogError);
+use SSH qw (plinkExecute);
 use Data::Dumper;
 use Storable qw (dclone);
 
@@ -35,7 +36,7 @@ sub ExecuteCommand
 
 sub get_instances
 {
-  my $output = ExecuteCommand("nova list");
+  my $output = plinkExecute("nova list");
   my $instances = [];
 
   foreach my $index (0 .. $#$output)
@@ -135,7 +136,7 @@ sub start_server
   }
 
   #executes nova start command
-  my $output = ExecuteCommand("nova start $server");
+  my $output = plinkExecute("nova start $server");
   my $timeout = 5;
   Log("Starting $server instance...");
   while ($timeout > 0)
@@ -172,7 +173,7 @@ sub stop_server
   }
 
   #executes nova stop command
-  my $output = ExecuteCommand("nova stop $server");
+  my $output = plinkExecute("nova stop $server");
   my $timeout = 5;
   Log("Stopping $server instance...");
   while ($timeout > 0)
@@ -199,7 +200,7 @@ sub show_server
   my $togrep = shift;
 
   #executes nova stop command
-  my $output = ExecuteCommand("nova show $server");
+  my $output = plinkExecute("nova show $server");
   #print Dumper $output;
   if(grep /$togrep/, @$output){
     return 1;
