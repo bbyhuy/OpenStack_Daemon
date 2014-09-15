@@ -8,6 +8,7 @@ our @EXPORT_OK = qw( get_instances
                      start_server
                      stop_server
                      keep_active
+                     get_networks
                    );
 
 use FindBin qw($Bin);
@@ -31,6 +32,7 @@ sub ExecuteCommand
   my $command = shift;
 
   my @sourcedcmd = `source /root/keystonerc_admin && $command`;
+
   return (\@sourcedcmd);
 }
 
@@ -75,6 +77,48 @@ sub get_instances
   }
   #print Dumper $instances;
   return $instances;
+}
+
+sub keep_created
+{
+  my $instances = get_instances();
+  my @InstanceNames = ( "MY-FIRST-VM",
+                        "MY-SECOND-VM",
+                        "MY-THIRD-VM",
+                        "MY-FOURTH-VM",
+                        "MY-FIFTH-VM"
+                      );
+
+  if($#$instances < 5)
+  {
+    my $images = Nova::get_images();
+    my $networks = Nova::get_networks();
+    foreach my $name (@InstanceNames)
+    {
+      for my $index (0 .. $#$instances)
+      { 
+        if($instances->[$index]->{Name} eq $name)
+        {
+          last;
+        }
+        elsif($instances->[$index]->{Name} ne $name && $index == $#$instances)
+        {
+          Log("Creating Instance: $name");
+          Nova::create_instance($name, $images, $networks);
+          sleep 30;
+          last;
+        }
+        else
+        {
+          next; 
+        }
+      }
+    }
+  }
+  else
+  {
+    Log("Max of 5 Instances Are Present");
+  }
 }
 
 sub keep_active
@@ -208,4 +252,69 @@ sub show_server
   else{
     return 0;
   }
+}
+
+sub get_networks
+{
+  my $output = plinkExecute("nova net-list");
+  my $networks = [];
+
+  foreach my $network (@$output)
+  {
+    if($network =~ m/\|\s+([A-Za-z0-9\-]+)\s+/i)
+    {
+      if($1 eq "ID"){next;}
+      else
+      {
+        push @$networks, $1;
+      }
+    }
+  }
+  return $networks;
+}
+
+sub get_flavors
+{
+  my $output = plinkExecute("nova flavor-list");
+  my $flavors = [];
+
+  foreach my $flavor (@$output)
+  {
+    if($flavor =~ m/\d+\s+\|\s+m1\.([A-Za-z]+)/i)
+    {
+      push @$flavors, "m1.$1";
+    }
+  }
+  return $flavors;
+
+}
+
+sub get_images
+{
+  my $output = plinkExecute("nova image-list");
+  my $images = [];
+
+  foreach my $image(@$output)
+  {
+    if($image =~ m/\|\s+([A-Za-z0-9\-]+)\s+/i)
+    {
+      if($1 eq "ID"){next;}
+      else
+      {
+        push @$images, $1;
+      }
+    }
+  }
+  return $images;
+}
+
+ #nova boot --flavor 1 --image 9388a8ba-9272-4fe9-be47-aa28ca582fc3 --nic net-id=6926fd09-677e-4dd4-a2ff-397ac7d21bf3 MY-THIRD-VM
+
+sub create_instance
+{
+  my $name = shift;
+  my $images = shift;
+  my $networks = shift;
+
+  my $output = plinkExecute("nova boot --flavor 1 --image $images->[0] --nic net-id=$networks->[0] $name");
 }

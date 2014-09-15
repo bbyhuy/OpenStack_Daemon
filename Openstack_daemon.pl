@@ -8,12 +8,16 @@ use Data::Dumper;
 use Nova qw(get_instances start_server stop_server keep_active);
 use Logger qw(Log LogError);
 
+
+
 while(42)
 {
   if(-e "$Bin/boom")
   {
+    Log("Daemon is Active");
     Nova::keep_active(1);
-    #Log("Found Boom");
+    Nova::keep_created();
+    Log("Resting for 360 Seconds")
   }
   elsif(-e "$Bin/kill")
   {
@@ -21,16 +25,10 @@ while(42)
   }
   else
   {
-    Log("No Boom Found...Sleeping for 5 Minutes....");
+    Log("Daemon at Rest");
   }
   sleep 360;        
 }
-
-
-
-#my $instances = Nova::get_instances();
-#OpenStack::Nova::start_server($ssh, $instances, "MY-SECOND-VM");
-#OpenStack::Nova::stop_server($ssh, $instances, "MY-SECOND-VM");
 
 sleep 10;
 exit;

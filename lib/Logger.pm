@@ -20,7 +20,8 @@ sub Log
   my $time = timestamp();
   my $filename = 'log.txt';
   open(my $fh, '>>', $filename) or die "Could not open file '$filename' $!";
-  print $fh "\[$time\]: $msg\n";
+  #print $fh "\[$time\]: $msg\n";
+  print $fh "$msg\n";
   close $fh;
 }
 
@@ -30,7 +31,8 @@ sub LogError
   my $time = timestamp();
   my $filename = 'error.txt';
   open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
-  print $fh "\[$time\]: $msg\n";
+  #print $fh "\[$time\]: $msg\n";
+  print $fh "$msg\n";
   close $fh;
 }
 
