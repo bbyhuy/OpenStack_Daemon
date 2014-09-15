@@ -8,9 +8,11 @@ DOWNLOAD HERE - http://www.activestate.com/activeperl/downloads/thank-you?dl=htt
 
 
 IMPORTANT!!!!!
-Open lib/SSH.pm with a text editor (notepad)
-edit line 21 
--pw yourpassword
+Open login.config
+and edit with your info.
+
+first line is the ip to openstack host
+second line is the password for root admin. 
 
 
 Simply execute with:
