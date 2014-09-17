@@ -6,6 +6,7 @@ use Exporter qw(import);
 
 our @EXPORT_OK = qw( Log
                      LogError
+                     Audit
                    );
 
 use FindBin qw($Bin);
@@ -25,12 +26,23 @@ sub Log
   close $fh;
 }
 
+sub Audit
+{
+  my $msg = shift;
+  my $time = timestamp();
+  my $filename = 'audit.txt';
+  open(my $fh, '>>', $filename) or die "Could not open file '$filename' $!";
+  #print $fh "\[$time\]: $msg\n";
+  print $fh "$msg\n";
+  close $fh;
+}
+
 sub LogError
 {
   my $msg = shift;
   my $time = timestamp();
   my $filename = 'error.txt';
-  open(my $fh, '>', $filename) or die "Could not open file '$filename' $!";
+  open(my $fh, '>>', $filename) or die "Could not open file '$filename' $!";
   #print $fh "\[$time\]: $msg\n";
   print $fh "$msg\n";
   close $fh;

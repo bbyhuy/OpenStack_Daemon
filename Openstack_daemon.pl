@@ -9,7 +9,6 @@ use Nova qw(get_instances start_server stop_server keep_active);
 use Logger qw(Log LogError);
 
 
-
 while(42)
 {
   if(-e "$Bin/boom")

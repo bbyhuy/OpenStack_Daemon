@@ -13,7 +13,7 @@ our @EXPORT_OK = qw( get_instances
 
 use FindBin qw($Bin);
 use lib "$Bin/lib";
-use Logger qw (Log LogError);
+use Logger qw (Log LogError Audit);
 use SSH qw (plinkExecute);
 use Data::Dumper;
 use Storable qw (dclone);
@@ -89,19 +89,15 @@ sub remove_errored
   my $instances = get_instances();
   for my $index (0 .. $#$instances)
   {
-     print "\n$instances->[$index]->{Status}\n\n";
     if($instances->[$index]->{Status} eq 'ERROR')
     {
-
       delete_instance($instances->[$index]->{Name});
     }
   }
 }
 sub keep_created
 {
-  tie my @array, 'Tie::File', "login.config" or die "Could not open login.config: $!";
-  my $min_created = $array[3];
-  untie @array;
+
   my $instances = get_instances();
   my @InstanceNames = ( "MY-FIRST-VM",
                         "MY-SECOND-VM",
@@ -109,36 +105,69 @@ sub keep_created
                         "MY-FOURTH-VM",
                         "MY-FIFTH-VM"
                       );
+  my $resources = get_resources();
+  tie my @array, 'Tie::File', "login.config" or die "Could not open login.config: $!";
+  my $min_created = $array[3];
 
   if($#$instances < $min_created)
   {
-    my $images = Nova::get_images();
-    my $networks = Nova::get_networks();
-    foreach my $name (@InstanceNames)
+    if($resources->{vCPUs} == 0)
     {
-      for my $index (0 .. $#$instances)
-      { 
-        if($instances->[$index]->{Name} eq $name)
+      Log("No more available vCPUs to assign. Reconfiguring min_created");
+      $array[3] = $#$instances;
+      untie @array;
+      return;
+    }
+    elsif($resources->{vCPUs} > 0)
+    {
+      my $current_num_of_instances = $#$instances;
+      my $available_vCPUs = $resources->{vCPUs};
+
+      if(($min_created - $#$instances) <= $available_vCPUs)
+      {
+        my $images = Nova::get_images();
+        my $networks = Nova::get_networks();
+        foreach my $name (@InstanceNames)
         {
-          last;
-        }
-        elsif($instances->[$index]->{Name} ne $name && $index == $#$instances)
-        {
-          Log("Creating Instance: $name");
-          Nova::create_instance($name, $images, $networks);
-          sleep 30;
-          last;
-        }
-        else
-        {
-          next; 
+          for my $index (0 .. $#$instances)
+          { 
+            if($instances->[$index]->{Name} eq $name)
+            {
+              last;
+            }
+            elsif($instances->[$index]->{Name} ne $name && $index == $#$instances)
+            {
+              Log("Creating Instance: $name");
+              Nova::create_instance($name, $images, $networks);
+              sleep 30;
+              untie @array;
+              return;
+            }
+            else
+            {
+              next; 
+            }
+          }
         }
       }
+      else
+      {
+        Log("Not enough vCPUs for the min_created amount. Reconfiguring...");
+        my $value = ($min_created - $#$instances);
+        while($value != $available_vCPUs)
+        {
+          $value--;
+        }
+        $array[3] = $value;
+        untie @array;
+        Log("min_created reconfigured to $value");
+        return;
+      }
     }
-  }
-  else
-  {
-    Log("Max of 5 Instances Are Present");
+    else
+    {
+      Log("vCPUs have been over-committed.");
+    }
   }
 }
 
@@ -351,4 +380,41 @@ sub delete_instance
   my $name = shift;
   Log("Deleting ERROR State Instance: $name");
   my $output = plinkExecute("nova delete $name");
+}
+
+sub get_resources
+{
+  my $data = {};
+  if(-e "audit.txt"){unlink "audit.txt";}
+  Log("Refreshing compute log...");
+  my $output = plinkExecute("rm -f /var/log/nova/compute.log");
+  $output = plinkExecute("ls /var/log/nova/compute.log");
+  while ($output->[0] =~ m/No such file/i)
+  {
+    sleep 5;
+    $output = plinkExecute("ls /var/log/nova/compute.log");
+  }
+  Log("Extracting compute log...");
+  $output = plinkExecute("cat /var/log/nova/compute.log");
+
+  foreach my $index (0 .. $#$output)
+  {
+    if($output->[$index] =~ m/Free\sram\s\(MB\):\s(\d+)/)
+    {
+      Audit("Free Ram (MB): $1");
+      $data->{FreeRam} = $1;
+    }
+    if($output->[$index] =~ m/Free\sdisk\s\(GB\):\s(\d+)/)
+    {
+      Audit("Free disk (GB): $1");
+      $data->{FreeDisk} = $1;
+    }
+    if($output->[$index] =~ m/Free\sVCPUS:\s([0-9\-]+)/)
+    {
+      Audit("Free VCPUS: $1");
+      $data->{vCPUs} = $1;
+      last;
+    }
+  }
+  return $data;
 }

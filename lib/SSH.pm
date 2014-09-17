@@ -22,7 +22,7 @@ sub plinkExecute
   tie my @array, 'Tie::File', "login.config" or die "Could not open login.config: $!";
 
 
-  my @sourcedcmd = `$plink -pw $array[1] root\@$array[0] \"source /root/keystonerc_admin && $command\"`;
+  my @sourcedcmd = `$plink -pw $array[1] root\@$array[0] \"source /root/keystonerc_admin && $command 2>&1\"`;
   #print Dumper @sourcedcmd;
   return (\@sourcedcmd);
 }
