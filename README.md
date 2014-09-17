@@ -12,8 +12,11 @@ Open login.config
 and edit with your info.
 
 first line is the ip to openstack host
+
 second line is the password for root admin. 
+
 third line is minimum number of instances you want active
+
 fourth line is minimum number of instances  you want created
 
 
