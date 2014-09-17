@@ -15,7 +15,8 @@ while(42)
   if(-e "$Bin/boom")
   {
     Log("Daemon is Active");
-    Nova::keep_active(1);
+    Nova::remove_errored();
+    Nova::keep_active();
     Nova::keep_created();
     Log("Resting for 360 Seconds")
   }

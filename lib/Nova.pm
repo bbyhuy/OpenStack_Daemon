@@ -43,7 +43,7 @@ sub get_instances
 
   foreach my $index (0 .. $#$output)
   {
-    if($output->[$index] =~ m/net\d+/)
+    if($output->[$index] =~ m/net\d+/ || $output->[$index] =~ m/ERROR/i)
     {
       my @metadata = split /\|/, $output->[$index];
 
@@ -55,7 +55,12 @@ sub get_instances
         }
       }
       my ($subnet, $floatip);
-      if($metadata[5] =~ m/\=([^,]+),\s+([^\s]+)/)
+      if($metadata[2] =~ m/ERROR/i)
+      {
+        $subnet = "";
+        $floatip = "";
+      }
+      elsif($metadata[5] =~ m/\=([^,]+),\s+([^\s]+)/)
       {
         $subnet = $1;
         $floatip = $2;
@@ -75,12 +80,28 @@ sub get_instances
       push (@$instances, dclone($metahash));
     }
   }
-  #print Dumper $instances;
+
   return $instances;
 }
 
+sub remove_errored
+{
+  my $instances = get_instances();
+  for my $index (0 .. $#$instances)
+  {
+     print "\n$instances->[$index]->{Status}\n\n";
+    if($instances->[$index]->{Status} eq 'ERROR')
+    {
+
+      delete_instance($instances->[$index]->{Name});
+    }
+  }
+}
 sub keep_created
 {
+  tie my @array, 'Tie::File', "login.config" or die "Could not open login.config: $!";
+  my $min_created = $array[3];
+  untie @array;
   my $instances = get_instances();
   my @InstanceNames = ( "MY-FIRST-VM",
                         "MY-SECOND-VM",
@@ -89,7 +110,7 @@ sub keep_created
                         "MY-FIFTH-VM"
                       );
 
-  if($#$instances < 5)
+  if($#$instances < $min_created)
   {
     my $images = Nova::get_images();
     my $networks = Nova::get_networks();
@@ -123,7 +144,9 @@ sub keep_created
 
 sub keep_active
 {
-  my $ActiveNum = shift;
+  tie my @array, 'Tie::File', "login.config" or die "Could not open login.config: $!";
+  my $ActiveNum = $array[2];
+  untie @array;
   my $instances = get_instances();
   my $active = 0;
 
@@ -141,6 +164,10 @@ sub keep_active
         if($instances->[$index]->{Status} eq 'ACTIVE' && $instances->[$index]->{Power} eq 'Running')
         {
           $active++;
+        }
+        elsif($instances->[$index]->{Status} eq 'ERROR')
+        {
+          delete_instance($instances->[$index]->{Name});
         }
         else
         {
@@ -317,4 +344,11 @@ sub create_instance
   my $networks = shift;
 
   my $output = plinkExecute("nova boot --flavor 1 --image $images->[0] --nic net-id=$networks->[0] $name");
+}
+
+sub delete_instance
+{
+  my $name = shift;
+  Log("Deleting ERROR State Instance: $name");
+  my $output = plinkExecute("nova delete $name");
 }
